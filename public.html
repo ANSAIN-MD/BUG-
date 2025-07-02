@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Noxa Bug No Sender</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: "Inter", sans-serif;
+            background-color: #f0f2f5;
+        }
+    </style>
+</head>
+<body class="flex items-center justify-center min-h-screen bg-gray-100 p-4">
+    <div class="bg-white p-8 rounded-lg shadow-xl w-full max-w-md">
+        <h1 class="text-3xl font-bold text-center text-gray-800 mb-2">Noxa Bug No Sender</h1>
+        <p class="text-sm text-center text-gray-600 mb-6">by dev dika</p>
+
+        <!-- Server Status Display -->
+        <div id="serverStatus" class="text-center mb-4 p-2 rounded-md font-medium">
+            <!-- Status will be updated by JavaScript -->
+            Memeriksa status server...
+        </div>
+
+        <form id="sendMessageForm" class="space-y-4">
+            <div>
+                <label for="number" class="block text-sm font-medium text-gray-700 mb-1">Nomor Tujuan (contoh: 6281234567890)</label>
+                <input type="text" id="number" name="number" placeholder="Masukkan nomor tujuan"
+                       class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                       required>
+            </div>
+            <div>
+                <label for="message" class="block text-sm font-medium text-gray-700 mb-1">Pesan Bug</label>
+                <textarea id="message" name="message" rows="4" placeholder="Masukkan teks pesan bug"
+                          class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                          required></textarea>
+            </div>
+            <button type="submit"
+                    class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition duration-150 ease-in-out">
+                Kirim Pesan
+            </button>
+        </form>
+
+        <div id="responseMessage" class="mt-6 p-3 rounded-md text-sm text-center hidden">
+            <!-- Pesan respons akan ditampilkan di sini -->
+        </div>
+
+        <div class="mt-4 text-center text-gray-500 text-xs">
+            <p>Sesi pengirim akan diambil secara acak dari sesi yang aktif.</p>
+        </div>
+    </div>
+
+    <script>
+        // GANTI URL INI KE ALAMAT IP DAN PORT BACKEND PTERODACTYL ANDA
+        const backendBaseUrl = 'http://157.245.157.192:3000'; // Pastikan ini sesuai dengan IP dan Port backend Anda
+
+        document.getElementById('sendMessageForm').addEventListener('submit', async function(event) {
+            event.preventDefault(); // Mencegah form dari reload halaman
+
+            const number = document.getElementById('number').value;
+            const message = document.getElementById('message').value;
+            const responseMessageDiv = document.getElementById('responseMessage');
+
+            responseMessageDiv.classList.add('hidden'); // Sembunyikan pesan sebelumnya
+            responseMessageDiv.classList.remove('bg-green-100', 'text-green-800', 'bg-red-100', 'text-red-800', 'bg-yellow-100', 'text-yellow-800');
+            responseMessageDiv.textContent = ''; // Kosongkan teks pesan
+
+            // Tampilkan loading indicator
+            responseMessageDiv.classList.remove('hidden');
+            responseMessageDiv.classList.add('bg-yellow-100', 'text-yellow-800');
+            responseMessageDiv.textContent = 'Mengirim pesan...';
+
+            try {
+                const response = await fetch(`${backendBaseUrl}/kirim`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ number, message })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    responseMessageDiv.classList.remove('bg-yellow-100', 'text-yellow-800');
+                    responseMessageDiv.classList.add('bg-green-100', 'text-green-800');
+                    responseMessageDiv.textContent = `Berhasil! Sesi: ${data.senderSession}, ID Pesan: ${data.messageId}. Pesan: ${data.message}`;
+                } else {
+                    responseMessageDiv.classList.remove('bg-yellow-100', 'text-yellow-800');
+                    responseMessageDiv.classList.add('bg-red-100', 'text-red-800');
+                    responseMessageDiv.textContent = `Gagal! ${data.message || 'Terjadi kesalahan.'} ${data.details ? `Detail: ${data.details}` : ''}`;
+                }
+            } catch (error) {
+                responseMessageDiv.classList.remove('bg-yellow-100', 'text-yellow-800');
+                responseMessageDiv.classList.add('bg-red-100', 'text-red-800');
+                responseMessageDiv.textContent = `Terjadi kesalahan jaringan: ${error.message}`;
+                console.error('Error:', error);
+            }
+        });
+
+        // Fungsi untuk memeriksa status server
+        async function checkServerStatus() {
+            const serverStatusDiv = document.getElementById('serverStatus');
+            try {
+                const response = await fetch(`${backendBaseUrl}/status`);
+                const data = await response.json();
+                if (response.ok && data.status === 'online') {
+                    serverStatusDiv.classList.remove('bg-red-100', 'text-red-800');
+                    serverStatusDiv.classList.add('bg-green-100', 'text-green-800');
+                    serverStatusDiv.textContent = `Status Server: ON (${data.readySessions}/${data.totalSessions} sesi aktif)`;
+                } else {
+                    serverStatusDiv.classList.remove('bg-green-100', 'text-green-800');
+                    serverStatusDiv.classList.add('bg-red-100', 'text-red-800');
+                    serverStatusDiv.textContent = `Status Server: OFF (${data.message || 'Tidak dapat terhubung'})`;
+                }
+            } catch (error) {
+                serverStatusDiv.classList.remove('bg-green-100', 'text-green-800');
+                serverStatusDiv.classList.add('bg-red-100', 'text-red-800');
+                serverStatusDiv.textContent = `Status Server: OFF (Tidak dapat menjangkau backend)`;
+                console.error('Error checking server status:', error);
+            }
+        }
+
+        // Panggil fungsi status saat halaman dimuat dan setiap 10 detik
+        window.addEventListener('load', checkServerStatus);
+        setInterval(checkServerStatus, 10000); // Periksa setiap 10 detik
+    </script>
+</body>
+</html>
